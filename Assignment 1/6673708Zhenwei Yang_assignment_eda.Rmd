@@ -1,0 +1,207 @@
+---
+title: "DAV Assignmnet 1"
+author: "Zhenwei Yang"
+date: "11/24/2020"
+output: 
+  html_document:
+    toc: true
+    toc_depth: 1 
+    toc_float: true
+    theme: paper
+---
+
+<style type="text/css">
+
+body{ /* Normal  */
+      font-size: 12px;
+  }
+td {  /* Table  */
+  font-size: 12px;
+}
+h1.title {
+  font-size: 20px;
+  color: DarkGreen;
+}
+h1 { /* Header 1 */
+  font-size: 18px;
+}
+h2 { /* Header 2 */
+    font-size: 16px;
+}
+h3 { /* Header 3 */
+  font-size: 14px;
+}
+code.r{ /* Code block */
+    font-size: 12px;
+}
+pre { /* Code block - determines code spacing between lines */
+    font-size: 12px;
+}
+</style>
+
+---
+
+# 1 Introduction
+
+In medicine, hypercholesterolemia (people with high serum cholesterol) is closely related to several prognostic factors, e.g., complicated hypertension (i.e., high blood pressure), sex and age level. Thus in this assignment, we will explore the relationship between resting blood pressure and serum cholesterol and see if the relationship varies between different age level and sex groups.  
+
+# 2 Data description
+
+## 2.1 The whole dataset
+
+The heart disease data is an open source dataset from UCI Machine learning Repository (can be downloaded from: https://archive.ics.uci.edu/ml/datasets/Heart+Disease) 
+
+```{r,message=FALSE}
+library(tidyverse)
+library(knitr)
+library(ggplot2)
+```
+
+```{r}
+heart<- read.csv("heart.csv")
+head(heart)
+```
+As above, we present a snapshot of the dataset. The dataset has 301 observations and 14 variables: 
+
+* **age**: a continuous variables with integers;
+* **sex**: a binary variable, 1 = male, 0 = female;
+* **cp**: chest pain type, categorical variable, 0 = typical angina, 1 = atypical angina, 2 = non-anginal pain, 3 = asymptomatic;
+* **trestbps**: resting blood pressure (in mm Hg on admission to the hospital), a continuous variable with integers;
+* **chol**: serum cholestoral in mg/dl, a continuous variable with integers;
+* **fbs**: fasting blood sugar > 120 mg/dl, a binary variable, 1 = true, 0 = false;
+* **restcg**: resting electrocardiographic results, categorical variable, 0 = normal, 1 = having ST-T wave abnormality, 2 = showing probable or definite left ventricular hypertrophy by Estes' criteria;
+* **thalach**: maximum heart rate achieved, a continuous variable with integers;
+* **exang**: exercise induced angina, a binary variable, 1 = yes, 2 = no;
+* **oldpeak**: ST depression induced by exercise relative to rest, a continuous variable;
+* **slope**: the slope of the peak exercise ST segment, a categorical variable, 0 = upsloping, 1 = flat, 2 = downsloping;
+* **ca**: number of major vessels (0-3) colored by flourosopy, a categorical variable ranging from 0 to 3;
+* **thal**: display of thalassemia, a categorical variable, 1 = normal, 2 = fixed defect, 3 = reversable defect;
+* **target**: target patient, a binary variable, 1 = yes, 0 = no
+
+## 2.2 Subset of the data and data summary
+In this assignment, we will use a subset of heart disease dataset, including four variables: age, sex, trestbps and chol. 
+
+```{r}
+heart <- heart %>% 
+  select(age, sex, trestbps, chol)
+hist(heart$age)
+
+summary(heart)
+```
+
+We first provide a brief summary of the data. As shown in the table above, the ages of the subjects range from 29 to 77. The maximum resting blood pressure is 200 mmHg, which is pretty high. But it does occur in the real life. So it is not considered as a outlier. The serum cholesterol ranges from 126 mg/dl and 564 mg/dl. Likewise, 564 mg/dl is also kept since it could happen. People with > 400 mg/dl serum cholesterol are regarded to have severe hypercholesterolemia. In all, there is no outlier in the subset.
+
+Note that to explore the relationship between resting blood pressure and serum cholesterol across different age levels, the age variable is transformed to be a categorical variable (i.e., age.cat), indicating three age level: young (20-40 year-old), middle-aged (41-60 year-old) and elderly (61-80 year-old).
+```{r}
+heart <- heart %>% 
+  mutate(age.cat = as.numeric(cut(heart$age, breaks = c(20,40,60,80),include.lowest = T))) %>% 
+  select(age.cat, sex, trestbps, chol)
+heart$age.cat <- recode_factor(heart$age.cat, `1` = "young", `2` = "middle-aged", `3` = "elderly")
+heart$sex <- recode_factor(heart$sex, `0` = "female", `1` = "male")
+```
+
+Here we present a summary of the data. Since we have two categorical variables, age.cat and sex. We will group the data based on those variables and yield the mean, standard deviation (SD), maximum value, minimum value of the continuous variables (trestbps & chol) and the number of observations.
+```{r,message=FALSE}
+heart %>% 
+  group_by(age.cat, sex) %>% 
+  summarize(
+    count = n(),
+    mean.bps = round(mean(trestbps),2),
+    sd.bps = round(sd(trestbps),2),
+    max.bps = max(trestbps),
+    min.bps = min(trestbps),
+    mean.chol = round(mean(chol),2),
+    sd.chol = round(sd(chol),2),
+    max.chol = max(chol),
+    min.chol = min(chol)
+  ) %>% 
+  kable(format = "pipe", caption = "<center><strong>Summary of the heart disease data</strong></center>",align = "c")
+```
+
+As above, we present a summary table of our data:
+
+* 5 young females: the mean resting blood pressure is 121.6 mmHg, which is the lowest. The mean serum cholestoral is 205.40 mg/dl, which is also the lowest. Interestingly, all the summarized indicators (mean, SD, min and max of the variables) except the minimum serum cholesterol, are the lowest in the six groups. 
+
+* 14 young males: the mean resting blood pressure is 128.71 mmHg, which is the second lowest. The mean serum cholesterol is 215.57 mg/dl, which is also the second lowest. The SD of blood pressure for this group is 11.63 is the lower than that for other groups, meaning that those 14 young men have relatively similar blood pressure.
+
+* 56 middle-aged females: the mean resting blood pressure is 130.75 mmHg (SD = 19.48), slightly higher than that of the middle-aged males The mean serum cholesterol is 257.30 mg/dl (SD = 52.88), slightly higher than that of the middle-aged males
+
+* 147 middle-aged males: the mean resting blood pressure is 129.76 mmHg (SD = 16.67). The mean serum cholesterol is 239.40 mg/dl (SD = 42.58)
+
+* 34 elderly females: the mean resting blood pressure is 138.76 mmHg (SD = 18.38), higher than that of the elderly male The mean serum cholesterol is 277.47 mg/dl (SD = 81.72), much higher than that of the elderly male
+
+* 45 elderly males: the mean resting blood pressure is 135.58	mmHg (SD = 17.56). The mean serum cholesterol is 247.09 mg/dl (SD = 41.41).
+
+Rough conclusion:
+
+* With the increase of the age level, the resting blood pressure and the serum cholestoral tend to grow as well;
+
+* Within the same age level, women only tend to have lower resting blood pressure and the serum cholestoral than men when they are young (20 - 40 year-old). But considering the large standard deviation there, there could be some sampling error there. 
+
+
+# 3 Descriptive plots
+
+## 3.1 Relation between blood pressure and serum cholesterol
+
+To explore the relationship between two continuous variables, the easiest way is to do a scatterplot. In the following figure, we present a scatterplot with a smoothed line:
+
+* Aesthetics: resting blood pressure for x axis, serum cholesterol for y axis, unique colour and shape for all observations (i.e., points);
+* geometrics: points and a smoothed line (with 95% confidence interval) showing the tendency;
+* scale: twp variables are both continuous and constructed in a cartesian coordinate system;
+* transformation: identity transformation;
+* facets: no
+
+```{r}
+fig1 <- ggplot(heart, aes(x = trestbps, y = chol)) +
+  geom_point() +
+  geom_smooth(method = "lm") + 
+  theme_bw() + 
+  theme(panel.border = element_blank(), panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(), axis.line = element_line(colour = "black")) +
+  labs(x = "resting blood pressure (mmHg)", y = "serum cholesterol (mg/dl)") + 
+  ggtitle("Figure 1 The scatterplot of trestbps and chol") +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold"))
+
+fig1
+```
+
+As seen from Figure 1, with the increase of resting blood pressure, the serum cholestrol goes up gradually. But the magnitude of increase is not that large.
+
+## 3.2 Relation between blood pressure and serum cholesterol across age level and sex groups
+
+In this step, we will group the data into 6 groups (2 sex groups $\times$ 3 age level groups) to see if the tendency will be changed. The plot we will show:
+
+* Aesthetics: resting blood pressure for x axis, serum cholesterol for y axis, unique shape for all observations (i.e., points), 6 colours are assigned to 6 different groups;
+* geometrics: points and a smoothed line (with 95% confidence interval) showing the tendency;
+* scale: twp variables are both continuous and constructed in a cartesian coordinate system, grouping variables are categorical ones;
+* transformation: identity transformation;
+* facets: 6 facets (young women, young men, middle-aged women, middle-aged men, elderly women and elderly men)
+
+```{r}
+fig2 <- ggplot(heart, aes(x = trestbps, y = chol, color = interaction(sex, age.cat))) +
+  geom_point() +
+  geom_smooth(method = "lm") + 
+  facet_wrap(~ age.cat + sex) +
+  theme_bw() + 
+  theme(panel.border = element_blank(), panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(), axis.line = element_line(colour = "black")) +
+  labs(x = "resting blood pressure (mmHg)", y = "serum cholesterol (mg/dl)") + 
+  ggtitle("Figure 2 The scatterplot of trestbps and chol across 6 groups") +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold"))
+
+fig2
+```
+
+* From above, in the group of young female, no tendency is observed. The reason could be all the observations in that group has normal blood pressure and females are less likely to have high blood pressure before menopause (~ 45-50 year-old).
+* In the group of young male, middle-aged female and middle-aged male, there is a relatively more significant growing tendency, indicating in those two target groups, higher blood pressure may lead to higher serum cholesterol as well. Middle age is a period when the hypertension and hypercholesterolemia are most prevalent among people. And people tend to have milder symptoms, which means controlling for other prognostic factors (blood pressure) can be effective. Males tend to suffer from the disease earlier than females. 
+* In the group of elderly female, the growing tendency is relatively flatter. 
+* In the group of elderly male, a decreasing tendency is even shown. This phenomenon can be related to using medicine. People with worse blood is more willing to have medicine.
+
+
+# 4 Conclusion
+
+Overall, higher blood pressure leads to  higher serum cholesterol to some extent. Males in the age of 20 to 60 and females in the age of 40 - 60 should be careful of their blood pressure. This report just provides some exploratory results. A research with larger sample size is in need.
+
+
+
+
